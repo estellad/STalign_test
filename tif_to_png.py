@@ -10,3 +10,5 @@ data = img.getdata()
 # save the RGB image
 outpath = img_path[:-4] + '_rgb.png'
 img.save(outpath)
+
+#TODO: not working, too big

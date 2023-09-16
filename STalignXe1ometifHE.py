@@ -37,11 +37,13 @@ Inorm = STalign.normalize(V)
 
 print(Inorm.min())
 print(Inorm.max())
-#
-# fig,ax = plt.subplots()
-# ax.imshow(Inorm)
-#
-# #
+
+fig,ax = plt.subplots()
+ax.imshow(Inorm)
+
+# 4. We will transpose Inorm to be a 3xNxM matrix for downstream analyses. ----------
+
+
 
 
 

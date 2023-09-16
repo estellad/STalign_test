@@ -19,6 +19,8 @@ fname = path + '/Xenium/outs/cells.csv.gz'
 df1 = pd.read_csv(fname)
 print(df1.head())
 
+
+
 # 5. Read data -------------------------
 # Single cell data 2
 # read in data
