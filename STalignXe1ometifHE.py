@@ -42,11 +42,37 @@ fig,ax = plt.subplots()
 ax.imshow(Inorm)
 
 # 4. We will transpose Inorm to be a 3xNxM matrix for downstream analyses. ----------
+I = Inorm.transpose(2,0,1)
+print(I.shape)
 
+YI = np.array(range(I.shape[1]))*1. # needs to be longs not doubles for STalign.transform later so multiply by 1.
+XI = np.array(range(I.shape[2]))*1. # needs to be longs not doubles for STalign.transform later so multiply by 1.
+extentI = STalign.extent_from_x((YI,XI))
 
+# 5. We can also see the data to be aligned with pandas ------
+# Single cell data to be aligned
+fname = path + 'Xenium/outs/cells.csv.gz'
+df = pd.read_csv(fname)
+df.head()
 
+# get cell centroid coordinates --------------------
+xM = np.array(df['x_centroid'])
+yM = np.array(df['y_centroid'])
 
+# plot
+fig,ax = plt.subplots()
+ax.scatter(xM,yM,s=1,alpha=0.2)
 
+## More plotting --------------------------------
+# plot
+fig,ax = plt.subplots()
+ax.imshow((I).transpose(1,2,0),extent=extentI)
+ax.scatter(xM,yM,s=1,alpha=0.1)
+
+############## Random plotting ##############
+import matplotlib.pyplot as plt
+plt.plot([1,2,3,4])
+plt.show(block=True)
 
 
 
