@@ -99,6 +99,11 @@ ax.scatter(xM,yM,s=30,alpha=1,
            c=libsizeMplot)
 plt.show()
 
+fig,ax = plt.subplots()
+ax.scatter(xM,yM,s=30,alpha=1
+           )
+plt.show()
+
 # ## More plotting --------------------------------
 # # plot
 # fig, ax = plt.subplots()

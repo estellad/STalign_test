@@ -60,9 +60,9 @@ df.shape # 4992, 6
 df.head()
 df.columns = ["barcodes", "in_tissue", "row", "col", "pxl_row_in_fullres", "pxl_col_in_fullres"]
 df.head()
-df = df.set_index('barcodes')
+df = df.set_index('barcodes', drop=False)
 df.head()
-df.shape # 4992, 5
+df.shape # 4992, 6
 
 # get cell centroid coordinates --------------------
 xM = np.array(df['pxl_row_in_fullres']/7)
@@ -100,12 +100,12 @@ ax.scatter(xM,yM,s=30,alpha=1,c=libsizeMplot, cmap = "gray")
 # ax.invert_xaxis()
 plt.show()
 
-# Normalize
-grey_scaled_libsize = libsizeMplot/libsizeMplot.ptp()
-grey_scaled_libsize = grey_scaled_libsize - grey_scaled_libsize.min()
-grey_scaled_libsize.ptp()
-
-xM, yM, grey_scaled_libsize
+# # Normalize
+# grey_scaled_libsize = libsizeMplot/libsizeMplot.ptp()
+# grey_scaled_libsize = grey_scaled_libsize - grey_scaled_libsize.min()
+# grey_scaled_libsize.ptp()
+#
+# xM, yM, grey_scaled_libsize
 
 ## More plotting --------------------------------
 # plot
@@ -120,55 +120,64 @@ plt.show()
 # (-0.5, 2758.5)
 
 # # Do not rasterize, and show the original image
-XJ = xM # Direct mapping, so no need to rasterize and downsize # len(XJ) 4992
-YJ = yM # Direct mapping, so no need to rasterize and downsize # len(XJ) 4992
+# XJ = xM # Direct mapping, so no need to rasterize and downsize # len(XJ) 4992
+# YJ = yM # Direct mapping, so no need to rasterize and downsize # len(XJ) 4992
 # # M = Do not need for downstream, unless for constructing J
 # # fig = Do not need for the plotting, just plot the scatter from previous
-# XJ,YJ,M,fig = STalign.rasterize(x=xM, y=yM, g=libsizeMplot, dx=3)
-# # TODO: here even I add g=libsizeMplot, the rasterization does not work well on Visium
-# # ## TODO: why the rasterize here changes the scaling. Maybe it was built for Xenium?
-# # # len(XJ) = 1937
-# # # len(YJ) = 1837
-# # # M.shape # (1, 1837, 1937)
-# # # # M.ptp() # 0.04166618344513297  # 0.0409358862545886
-# #
-# ax = fig.axes[0]
-# ax.invert_yaxis()
-# plt.show()
-
-fig, ax = plt.subplots()
-ax.scatter(XJ,YJ,s=30,alpha=0.3, c=libsizeMplot)
-ax.invert_yaxis()
+XJ,YJ,M,fig = STalign.rasterize(x=xM, y=yM, g=libsizeMplot, dx=3)
+# TODO: here even I add g=libsizeMplot, the rasterization does not work well on Visium
+# ## TODO: why the rasterize here changes the scaling. Maybe it was built for Xenium?
+# # len(XJ) = 646
+# # len(YJ) = 613
+# # M.shape # (1, 613, 646)
+# # # M.ptp() # 0.04166618344513297  # 0.0409358862545886  # 0.041051532527712584
+#
+ax = fig.axes[0]
+# ax.invert_yaxis() # Somehow no need here, maybe because I supplied the libsize vector
 plt.show()
-# Note here is reversed, so add reverse axis
 
-########################################################
+##################################
+print(M.shape)
+J = np.vstack((M, M, M)) # make into 3xNxM
+print(J.min())
+print(J.max())
+
+# normalize
+J = STalign.normalize(J)
+print(J.min())
+print(J.max())
+
+# double check size of things
+print(I.shape)
+print(M.shape)
+print(J.shape)
+
+##################################
 # manually make corresponding points
-pointsI = np.array([[1050.,950.], [700., 2200.], [550., 1550.], [1550., 1840.]])
+pointsI = np.array([[1050.,950.], [700., 2200.], [500., 1550.], [1550., 1840.]])
+pointsJ = np.array([[1500.,1100.], [1200.,2350.], [1000., 1700.], [2000., 1950.]])
 
-fig, ax = plt.subplots()
-ax.imshow((I).transpose(1,2,0),extent=extentI)
-ax.scatter(pointsI[:,1],pointsI[:,0], c='red')
+# plot
+extentJ = STalign.extent_from_x((YJ,XJ))
+
+fig,ax = plt.subplots(1,2)
+ax[0].imshow((I.transpose(1,2,0).squeeze()), extent=extentI)
+ax[1].imshow((J.transpose(1,2,0).squeeze()), extent=extentJ)
+
+ax[0].scatter(pointsI[:,1],pointsI[:,0], c='red')
+ax[1].scatter(pointsJ[:,1],pointsJ[:,0], c='red')
 for i in range(pointsI.shape[0]):
-    ax.text(pointsI[i,1],pointsI[i,0],f'{i}', c='red')
-plt.xlim(-0.5, 2758.5)
-plt.ylim(2304.625, -0.5)
+    ax[0].text(pointsI[i,1],pointsI[i,0],f'{i}', c='red')
+    ax[1].text(pointsJ[i,1],pointsJ[i,0],f'{i}', c='red')
+
+# invert only rasterized image
+# ax[1].invert_yaxis()
 plt.show()
 
-
-# pointsJ = np.array([[1100.,1500.], [2350., 1200.], [1750., 1000.], [1950., 2000.]])
-pointsJ = np.array([[1500., 1100.], [1200., 2350.], [1000., 1720.], [2000., 1950.]])
-
-fig, ax = plt.subplots()
-ax.scatter(XJ,YJ,s=30,alpha=0.5,c=libsizeMplot)
-ax.invert_yaxis()
-ax.scatter(pointsJ[:,1],pointsJ[:,0], c='red')
-for i in range(pointsJ.shape[0]):
-    ax.text(pointsJ[i,1],pointsJ[i,0],f'{i}', c='red')
-plt.xlim(-0.5, 2758.5)
-plt.ylim(2304.625, -0.5)
-plt.show()
-
+# fig,ax = plt.subplots()
+# ax.imshow((J.transpose(1,2,0).squeeze()), extent=extentJ)
+# # ax.invert_yaxis()
+# plt.show()
 
 # compute initial affine transformation from points
 L,T = STalign.L_T_from_points(pointsI,pointsJ)
@@ -254,21 +263,20 @@ phiipointsJ = STalign.transform_points_target_to_atlas(xv,v,A,pointsJ)
 fig,ax = plt.subplots()
 ax.imshow((I).transpose(1,2,0),extent=extentI)
 ax.scatter(phiipointsJ[:,1].detach(),phiipointsJ[:,0].detach(),c="r")
-ax.scatter(tpointsI[:,1].detach(),tpointsI[:,0].detach(),s=1,alpha=0.1)
+ax.scatter(tpointsI[:,1].detach(),tpointsI[:,0].detach(),s=30,alpha=0.5,
+           c=libsizeMplot)
 plt.show()
 
 # save results by appending
-results = np.hstack((df, tpointsI.numpy()))
-
-# Only affine result
-dict_of_arrs = {"pxl_row_in_fullres_affine": xMaffine, "pxl_col_in_fullres_affine": yMaffine}
-new_coord = pd.DataFrame(dict_of_arrs)
+new_coord = pd.DataFrame(tpointsI.numpy())
+new_coord = new_coord.set_index(df.barcodes)
+new_coord.columns = ["pxl_row_in_fullres_transformed",
+                     "pxl_col_in_fullres_transformed"]
 results = df.join(new_coord)
-
-fname_new = path + 'Visium/outs/spatial/visCoord_to_XeHE_STalign.csv'
-# np.savetxt(fname_new, results, delimiter=',')
-
+fname_new = path + 'Visium/outs/spatial/visCoord_to_XeHE_STalign_nonlinear.csv'
 results.to_csv(fname_new)
+
+
 
 
 
