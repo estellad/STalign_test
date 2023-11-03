@@ -28,7 +28,7 @@ fig,ax = plt.subplots()
 ax.scatter(xI,yI,s=1,alpha=0.2)
 plt.show()
 
-# 3. Rasterize Xe1 -------------------------
+# 3. Rasterize -------------------------
 XI,YI,I,fig = STalign.rasterize(xI,yI,dx=30)
 
 # plot
@@ -65,17 +65,6 @@ ax.scatter(xI,yI,s=1,alpha=0.2)
 ax.scatter(xJ,yJ,s=1,alpha=0.2)
 plt.show()
 
-# 6. Save .npz files ----------------------
-# Optional: write out npz files for landmark point picker
-np.savez(path + '/Xenium/outs/Xenium_Breast_Cancer_Rep1', x=XI,y=YI,I=I)
-np.savez(path + '/Xenium2/outs/Xenium_Breast_Cancer_Rep2', x=XJ,y=YJ,I=J)
-# outputs Xenium_Breast_Cancer_Rep1.npz and Xenium_Breast_Cancer_Rep2.npz
-
-# 7. Run the command line to get GUI to select landmark ----------
-# Put https://github.com/JEFworks-Lab/STalign/blob/main/STalign/curve_annotator.py
-# to current project folder.
-# python curve_annotator.py '/Users/estelladong/Desktop/raw_data_must/Xenium/outs/Xenium_Breast_Cancer_Rep1.npz'
-# python curve_annotator.py '/Users/estelladong/Desktop/raw_data_must/Xenium2/outs/Xenium_Breast_Cancer_Rep2.npz'
 
 # 8. Read landmarks selected from GUI ---------------------------
 # read from file
@@ -164,48 +153,26 @@ v = out['v']
 xv = out['xv']
 WM = out['WM']
 
-# 15. Get Transformation grid (PointI for Xe1) ---------------------------
-# apply transform
-phii = STalign.build_transform(xv,v,A,XJ=[YJ,XJ],direction='b')
-phiI = STalign.transform_image_atlas_to_target(xv,v,A,[YI,XI],Ifoo,[YJ,XJ])
-phipointsI = STalign.transform_points_atlas_to_target(xv,v,A,pointsI)
-
-# plot with grids
-fig,ax = plt.subplots()
-levels = np.arange(-100000,100000,1000)
-ax.contour(XJ,YJ,phii[...,0],colors='r',linestyles='-',levels=levels)
-ax.contour(XJ,YJ,phii[...,1],colors='g',linestyles='-',levels=levels)
-ax.set_aspect('equal')
-ax.set_title('source to target')
-ax.imshow(phiI.permute(1,2,0)/torch.max(phiI),extent=extentJ)
-ax.scatter(phipointsI[:,1].detach(),phipointsI[:,0].detach(),c="m")
-ax.invert_yaxis()
-plt.show()
-
-# 15. Result is invertible (PointJ for Xe2) ---------------------------
-# transform is invertible
-phi = STalign.build_transform(xv,v,A,XJ=[YI,XI],direction='f')
-phiiJ = STalign.transform_image_target_to_atlas(xv,v,A,[YJ,XJ],Jfoo,[YI,XI])
-phiipointsJ = STalign.transform_points_target_to_atlas(xv,v,A,pointsJ)
-
-# plot with grids
-fig,ax = plt.subplots()
-levels = np.arange(-100000,100000,1000)
-ax.contour(XI,YI,phi[...,0],colors='r',linestyles='-',levels=levels)
-ax.contour(XI,YI,phi[...,1],colors='g',linestyles='-',levels=levels)
-ax.set_aspect('equal')
-ax.set_title('target to source')
-ax.imshow(phiiJ.permute(1,2,0)/torch.max(phiiJ),extent=extentI)
-ax.scatter(phiipointsJ[:,1].detach(),phiipointsJ[:,0].detach(),c="m")
-ax.invert_yaxis()
-plt.show()
-
 # 16. Map to original coordinates -----------------------------
-# apply transform to original points
-tpointsJ = STalign.transform_points_target_to_atlas(xv,v,A, np.stack([yJ, xJ], 1))
+# apply transform to original points (from mouse brain tutorial Jean suggested)
+tpointsJ= STalign.transform_points_target_to_atlas(xv,v,A, np.stack([yJ, xJ], 1))
 
-# just original points for visualizing later
+#switch tensor from cuda to cpu for plotting with numpy
+if tpointsJ.is_cuda:
+    tpointsJ = tpointsJ.cpu()
+
+# switch from row column coordinates (y,x) to (x,y)
+xJ_LDDMM = tpointsJ[:, 1]
+yJ_LDDMM = tpointsJ[:, 0]
+
+# just Xe1 points for visualizing later
 tpointsI = np.stack([xI, yI])
+
+# # apply transform to Xe2 points (from original tutorial)
+# tpointsJ = STalign.transform_points_target_to_atlas(xv,v,A, np.stack([yJ, xJ], 1))
+#
+# # just Xe1 points for visualizing later
+# tpointsI = np.stack([xI, yI])
 
 # 17. Plot overlay --------------------------------------------
 # plot results
@@ -214,15 +181,47 @@ ax.scatter(tpointsI[0,:],tpointsI[1,:],s=1,alpha=0.2)
 ax.scatter(tpointsJ[:,1],tpointsJ[:,0],s=1,alpha=0.1) # also needs to plot as y,x not x,y
 plt.show()
 
-# 18. Save new coords -----------------------------------------
-# save results by appending
-# note results are in y,x coordinates
-results = np.hstack((df2, tpointsJ.numpy()))
-np.savetxt(path + '/Xenium2/outs/Xenium_Breast_Cancer_Rep2_STalign_to_Rep1.csv', results, delimiter=',')
+# # 18. Save new coords -----------------------------------------
+# # save results by appending
+# # note results are in y,x coordinates
+# results = np.hstack((df2, tpointsJ.numpy()))
+# np.savetxt(path + '/Xenium2/outs/Xenium_Breast_Cancer_Rep2_STalign_to_Rep1.csv', results, delimiter=',')
 
-results.shape # (118752, 11)
-df2.shape # (118752, 9)
-df1.shape # (167780, 9)
 
-resultsdf = pd.DataFrame(results)
-print(resultsdf.head()) # two new cols are added to the end for the new Coords
+# 19. Subset to common region -------------------------------------------------------
+# compute weight values for transformed source points from target image pixel locations and weight 2D array (matching)
+testM = STalign.interp([YI,XI],WM[None].float(),tpointsJ[None].permute(-1,0,1).float())
+
+#switch tensor from cuda to cpu for plotting with numpy
+if testM.is_cuda:
+    testM = testM.cpu()
+
+fig,ax = plt.subplots()
+scatter = ax.scatter(tpointsJ[:,1],tpointsJ[:,0],c=testM[0,0],s=0.1,vmin=0,vmax=1, label='WM values')
+legend1 = ax.legend(*scatter.legend_elements(),
+                    loc="upper right", title="WM values")
+plt.show()
+
+# 20. Obtain 'results', save the new aligned positions by appending to our original data ----------------------
+if tpointsJ.is_cuda:
+    df3 = pd.DataFrame(
+        {"aligned_x": xJ_LDDMM.cpu(),
+         "aligned_y": yJ_LDDMM.cpu(),
+        },
+    )
+else:
+    df3 = pd.DataFrame(
+        {"aligned_x": xJ_LDDMM,
+         "aligned_y": yJ_LDDMM,
+        },
+    )
+results = pd.concat([df2, df3], axis=1)
+results.head()
+
+# 21. save 'weight' values to 'results' --------------------------------
+results['WM_values'] = testM[0,0]
+
+# 22. check weight histogram -------------------------------------------
+fig,ax = plt.subplots()
+ax.hist(results['WM_values'], bins = 20)
+plt.show()
