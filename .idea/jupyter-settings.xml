@@ -7,7 +7,7 @@
           <value>
             <JupyterConnectionParameters>
               <option name="managed" value="true" />
-              <option name="sdkName" value="STalign" />
+              <option name="sdkName" value="newSTalign" />
             </JupyterConnectionParameters>
           </value>
         </entry>
